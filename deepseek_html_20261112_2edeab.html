@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Connector · Mentor Mode</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  font-family:Segoe UI,Poppins,system-ui,sans-serif;background:#f0f2f8;
+  padding:20px 0;
+}
+.container{
+  width:520px;max-width:95%;padding:28px 30px 32px;
+  background:rgba(255,255,255,.96);border-radius:28px;
+  box-shadow:0 20px 40px rgba(0,0,0,.15);
+}
+h1{text-align:center;color:#1e293b;font-size:26px;margin-bottom:24px}
+.section{display:flex;flex-direction:column;gap:9px;margin-bottom:20px}
+label.title{
+  font-weight:700;color:#334155;font-size:13px;
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.rc-input,.device-select{
+  width:100%;padding:13px 16px;border:2px solid #e2e8f0;
+  border-radius:18px;font-size:15px;background:#fff;
+}
+.rc-input:focus,.device-select:focus{
+  outline:none;border-color:#0f7c8c;box-shadow:0 0 0 3px rgba(15,124,140,.1);
+}
+.device-group{display:flex;gap:10px;flex-wrap:wrap}
+.device-item{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  padding:10px 15px;border-radius:30px;background:#f1f5f9;
+}
+.device-item input{width:18px;height:18px;cursor:pointer}
+.divider{height:1px;background:#cbd5e1;margin:4px 0 20px}
+#connectBtn{
+  width:100%;padding:15px;border:0;border-radius:30px;
+  font-size:17px;font-weight:800;cursor:pointer;color:white;
+  background:linear-gradient(115deg,#0b7b8a,#0f4c5f);
+}
+#connectBtn.connected{background:linear-gradient(115deg,#aa2e3e,#7a1f2c)}
+.secondary-btn{
+  width:100%;margin-top:10px;padding:14px;border:0;border-radius:30px;
+  font-size:16px;font-weight:800;cursor:pointer;color:#fff;
+  background:linear-gradient(115deg,#334155,#1e293b);
+}
+.secondary-btn:disabled{opacity:.55;cursor:not-allowed}
+#status{
+  margin-top:14px;padding:10px;text-align:center;border-radius:20px;
+  background:#e2e8f0;color:#1e293b;font-size:12px;min-height:36px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ---------- MENTOR MODE ---------- */
+#mentorToggleBtn{
+  width:100%;margin-top:10px;padding:14px;border:0;border-radius:30px;
+  font-size:16px;font-weight:800;cursor:pointer;color:#fff;
+  background:linear-gradient(115deg,#f59e0b,#b45309);
+}
+#mentorToggleBtn.active{background:linear-gradient(115deg,#dc2626,#7f1d1d)}
+
+#mentorSection{
+  margin-top:16px;padding:16px;border-radius:20px;background:#fffbeb;
+  border:2px solid #fcd34d;display:none;
+}
+.mentor-title{
+  font-weight:800;color:#92400e;font-size:14px;margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:.5px;display:flex;
+  justify-content:space-between;align-items:center;
+}
+.mentor-timer{
+  font-size:12px;font-weight:700;color:#78350f;background:#fde68a;
+  padding:4px 10px;border-radius:20px;
+}
+.mentor-msg{
+  background:#fff;border:1px solid #fde68a;border-radius:12px;
+  padding:10px;margin-bottom:10px;
+}
+.mentor-msg-label{
+  font-size:11px;font-weight:700;color:#92400e;margin-bottom:6px;
+  text-transform:uppercase;
+}
+.mentor-msg-text{
+  font-size:11px;color:#475569;line-height:1.4;margin-bottom:8px;
+  word-break:break-word;
+}
+.delay-row{
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap;
+}
+.delay-row select,.delay-row input{
+  padding:6px 8px;border:1px solid #fcd34d;border-radius:8px;
+  font-size:11px;background:#fff;color:#1e293b;
+}
+.delay-row input{width:56px;text-align:center}
+.delay-row select{flex:1;min-width:100px}
+.delay-label{font-size:10px;color:#92400e;font-weight:700}
+.mentor-next{
+  text-align:center;font-size:12px;font-weight:700;color:#b45309;
+  margin-top:6px;padding:6px;background:#fef3c7;border-radius:8px;
+}
+
+/* ---------- SESSION STATS ---------- */
+#sessionStats{
+  margin-top:14px;padding:12px;border-radius:16px;background:#eff6ff;
+  border:1px solid #bfdbfe;font-size:12px;color:#1e3a8a;
+  display:flex;flex-direction:column;gap:4px;
+}
+.stat-row{display:flex;justify-content:space-between}
+.stat-row b{font-family:monospace;font-size:12px}
+</style>
+
+<style>
+  #planetSection { margin-top: 14px; display: none; }
+  #planetList {
+    max-height: 360px; overflow-y: auto; display: flex;
+    flex-direction: column; gap: 5px; margin-top: 8px;
+  }
+  .planet-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 7px 8px; background: #20203a;
+    border-radius: 5px; border-left: 3px solid #FFC926;
+  }
+  .planet-row.online { border-left-color: #58BA56; }
+  .planet-name {
+    flex: 1; min-width: 0; color: #fff; font-size: 12px;
+    font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .planet-online {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #58BA56; flex: 0 0 auto;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔌 Device Connector</h1>
+
+  <div class="section">
+    <label class="title">🔐 Recovery Code</label>
+    <input id="rcInput" class="rc-input" type="text"
+           placeholder="Enter Recovery Code" maxlength="10"
+           autocomplete="off">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <label class="title">⚙️ Select Device</label>
+    <div class="device-group">
+      <label class="device-item">
+        <input type="radio" name="platform" value="352" checked>
+        <span>🌐 Web</span>
+      </label>
+      <label class="device-item">
+        <input type="radio" name="platform" value="350">
+        <span>📱 Android</span>
+      </label>
+      <label class="device-item">
+        <input type="radio" name="platform" value="360">
+        <span>🍎 iOS</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <button id="connectBtn">🔌 CONNECT</button>
+  <div id="status">⚡ Ready to connect</div>
+
+  <button id="mentorToggleBtn">🎓 MENTOR MODE</button>
+
+  <!-- MENTOR MODE PANEL -->
+  <div id="mentorSection">
+    <div class="mentor-title">
+      <span>🎓 Mentor Mode</span>
+      <span id="mentorTimer" class="mentor-timer">inactive</span>
+    </div>
+
+    <!-- Message 1 -->
+    <div class="mentor-msg">
+      <div class="mentor-msg-label">Message 1 · Welcome #1</div>
+      <div class="mentor-msg-text">Welcome to galaxy 🌹 Please swipe 👈 left /right 👉 to select user you want to talk with. Please tap (🖐️) to do an action, tap (🙍) to view info, tap 🚀 to explore new planets randomly</div>
+      <div class="delay-row">
+        <span class="delay-label">Delay:</span>
+        <select data-msg="1" class="delay-mode">
+          <option value="sec">Seconds</option>
+          <option value="min" selected>Minutes</option>
+        </select>
+        <input type="number" data-msg="1" class="delay-min" value="1" min="0">
+        <span class="delay-label">to</span>
+        <input type="number" data-msg="1" class="delay-max" value="2" min="0">
+      </div>
+    </div>
+
+    <!-- Message 2 -->
+    <div class="mentor-msg">
+      <div class="mentor-msg-label">Message 2 · Welcome #2</div>
+      <div class="mentor-msg-text">Welcome, Newcomers! 🌟 Click the 🚀 sign in the upper-right corner and select “Popular Now.”</div>
+      <div class="delay-row">
+        <span class="delay-label">Delay:</span>
+        <select data-msg="2" class="delay-mode">
+          <option value="sec" selected>Seconds</option>
+          <option value="min">Minutes</option>
+        </select>
+        <input type="number" data-msg="2" class="delay-min" value="40" min="0">
+        <span class="delay-label">to</span>
+        <input type="number" data-msg="2" class="delay-max" value="60" min="0">
+      </div>
+    </div>
+
+    <div id="mentorNext" class="mentor-next">Select a mode and press MENTOR MODE to start</div>
+  </div>
+
+  <!-- SESSION STATS -->
+  <div id="sessionStats">
+    <div class="stat-row"><span>⏱️ This session:</span><b id="statSession">0s</b></div>
+    <div class="stat-row"><span>📊 Total on site:</span><b id="statTotal">0s</b></div>
+    <div class="stat-row"><span>📩 Messages sent:</span><b id="statMsgs">0</b></div>
+  </div>
+
+  <div id="planetSection" class="planet-section">
+    <div class="planet-title">🌍 PLANETS</div>
+    <div id="planetList" class="planet-list">
+      <div class="empty-planets">No planets loaded</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- GLOBAL PERSISTENT STATE ---------- */
+let ws = null;
+let haaapsi = '';
+let id = '';
+let useridg = '';
+let passwordg = '';
+let finalusername = '';
+let isConnected = false;
+
+let autoLoadTimer = null;
+let planetsData = [];
+
+/* ---------- MENTOR MODE STATE ---------- */
+let mentorActive = false;
+let mentorTimeout = null;
+let mentorPhase = 0;            // 0 = msg1, 1 = msg2
+let mentorStartedAt = 0;
+let mentorSendCount = 0;
+
+const MENTOR_MESSAGES = {
+  1: 'PRIVMSG 0 0 :Welcome to galaxy 🌹 Please swipe 👈 left /right 👉 to select user you want to talk with. Please tap (🖐️) to do an action, tap (🙍) to view info, tap 🚀 to explore new planets randomly',
+  2: 'PRIVMSG 0 0 :Welcome, Newcomers! 🌟 Click the 🚀 sign in the upper-right corner and select “Popular Now.”'
+};
+
+/* ---------- SESSION TRACKING ---------- */
+const SESSION_KEY   = 'gc_session_total_ms';
+const RC_KEY        = 'gc_saved_rc';
+const MSG_COUNT_KEY = 'gc_msgs_sent';
+
+let sessionStart = Date.now();
+let sessionTotalMs = parseInt(localStorage.getItem(SESSION_KEY) || '0', 10);
+let msgsSentTotal = parseInt(localStorage.getItem(MSG_COUNT_KEY) || '0', 10);
+let saveInterval = null;
+
+/* ---------- DOM ---------- */
+const rcInput = document.getElementById('rcInput');
+const connectBtn = document.getElementById('connectBtn');
+const statusEl = document.getElementById('status');
+const planetList = document.getElementById('planetList');
+const platformRadios = document.querySelectorAll('input[name="platform"]');
+const planetSection = document.getElementById('planetSection');
+
+const mentorToggleBtn = document.getElementById('mentorToggleBtn');
+const mentorSection = document.getElementById('mentorSection');
+const mentorTimer = document.getElementById('mentorTimer');
+const mentorNext = document.getElementById('mentorNext');
+
+const statSession = document.getElementById('statSession');
+const statTotal = document.getElementById('statTotal');
+const statMsgs = document.getElementById('statMsgs');
+
+/* ---------- HELPERS ---------- */
+function updateStatus(message) { statusEl.textContent = message; }
+function getRC() { return rcInput.value.trim().slice(0, 10); }
+function getSelectedPlatformId() {
+  for (const radio of platformRadios) if (radio.checked) return radio.value;
+  return '352';
+}
+
+function parseHaaapsi(value) {
+  if (!value) return '';
+  let temp = CryptoJS.MD5(value).toString(CryptoJS.enc.Hex);
+  temp = temp.split('').reverse().join('0');
+  return temp.substr(5, 10);
+}
+
+function setButtonMode(connected) {
+  isConnected = connected;
+  if (connected) {
+    connectBtn.textContent = '🔌 DISCONNECT';
+    connectBtn.classList.add('connected');
+  } else {
+    connectBtn.textContent = '🔌 CONNECT';
+    connectBtn.classList.remove('connected');
+  }
+}
+
+/* ---------- SESSION / RC PERSISTENCE ---------- */
+function formatDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function updateSessionDisplay() {
+  const now = Date.now();
+  const sessionMs = now - sessionStart;
+  statSession.textContent = formatDuration(sessionMs);
+  statTotal.textContent = formatDuration(sessionTotalMs + sessionMs);
+  statMsgs.textContent = String(msgsSentTotal);
+}
+
+function persistSession() {
+  const sessionMs = Date.now() - sessionStart;
+  sessionTotalMs += sessionMs;
+  sessionStart = Date.now();
+  localStorage.setItem(SESSION_KEY, String(sessionTotalMs));
+}
+
+function incrementMsgCount() {
+  msgsSentTotal++;
+  localStorage.setItem(MSG_COUNT_KEY, String(msgsSentTotal));
+  updateSessionDisplay();
+}
+
+function loadSavedRC() {
+  try {
+    const saved = localStorage.getItem(RC_KEY);
+    if (saved) rcInput.value = saved;
+  } catch (_) {}
+}
+
+function saveRC(value) {
+  try { localStorage.setItem(RC_KEY, value); } catch (_) {}
+}
+
+/* ---------- AUTO PLANET LOAD ---------- */
+function scheduleAutoPlanetLoad() {
+  if (autoLoadTimer) { clearTimeout(autoLoadTimer); autoLoadTimer = null; }
+  updateStatus('⏳ Waiting 5s to load planets...');
+  autoLoadTimer = setTimeout(() => {
+    autoLoadTimer = null;
+    if (useridg && passwordg) loadPlanetsAutomatically();
+    else updateStatus('⚠️ Planet load skipped – missing credentials');
+  }, 5000);
+}
+
+async function loadPlanetsAutomatically() {
+  if (!useridg || !passwordg) {
+    updateStatus('❌ Cannot load planets – not authenticated');
+    return;
+  }
+  updateStatus('🌍 Loading planets automatically...');
+
+  const random = Math.random();
+  const url = 'https://galaxy.mobstudio.ru/services/?' +
+    new URLSearchParams({
+      a: 'channel_list_index', type: 'user', force_my: '1',
+      userID: useridg, password: passwordg, usercur: '87629269',
+      random: String(random)
+    }).toString();
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'accept': '*/*',
+        'x-galaxy-client-ver': '9.5',
+        'x-galaxy-kbv': getSelectedPlatformId(),
+        'x-galaxy-lng': 'en',
+        'x-galaxy-model': 'chrome 139.0.0.0',
+        'x-galaxy-orientation': 'portrait',
+        'x-galaxy-os-ver': '1',
+        'x-galaxy-platform': 'web',
+        'x-galaxy-scr-dpi': '3',
+        'x-galaxy-scr-h': '704',
+        'x-galaxy-scr-w': '360'
+      },
+      credentials: 'omit'
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') || '';
+    let data;
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
+
+    const planets = parsePlanetsFromResponse(
+      typeof data === 'string' ? data : JSON.stringify(data)
+    );
+
+    if (planets.length) {
+      renderPlanets(planets);
+      updateStatus(`✅ Loaded ${planets.length} planet(s)`);
+    } else {
+      const names = findPlanetNames(data);
+      if (names.length) {
+        const fallbackPlanets = names.map((name, i) => ({ id: `fallback_${i}`, name, online: 0 }));
+        renderPlanets(fallbackPlanets);
+        updateStatus(`✅ Found ${names.length} planet name(s)`);
+      } else {
+        planetList.innerHTML = '<div class="empty-planets">No planets found in response</div>';
+        updateStatus('⚠️ No planet names found');
+      }
+    }
+  } catch (error) {
+    console.error('Auto load planet error:', error);
+    planetList.innerHTML = '<div class="empty-planets">Failed to load planets</div>';
+    updateStatus(`❌ Planet load failed: ${error.message}`);
+  }
+}
+
+function findPlanetNames(data) {
+  const names = []; const seen = new Set();
+  function addName(value) {
+    if (typeof value !== 'string') return;
+    const name = value.trim();
+    if (!name || name.length > 150 || seen.has(name)) return;
+    seen.add(name); names.push(name);
+  }
+  function walk(value) {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) { value.forEach(walk); return; }
+    if (typeof value.name === 'string') addName(value.name);
+    if (typeof value.title === 'string') addName(value.title);
+    if (typeof value.channelName === 'string') addName(value.channelName);
+    if (typeof value.channel_name === 'string') addName(value.channel_name);
+    Object.values(value).forEach(child => { if (child && typeof child === 'object') walk(child); });
+  }
+  walk(data);
+  return names;
+}
+
+/* ---------- PLANET PARSER (no pop anymore) ---------- */
+window.parsePlanetsFromResponse = function(htmlResponse) {
+  const planets = [];
+  const matches = htmlResponse.match(/<div class="vue-data"[^>]*data-json="([^"]*)"/g) || [];
+  for (const match of matches) {
+    const m = match.match(/data-json="([^"]*)"/);
+    if (!m || !m[1]) continue;
+    let data = null;
+    try { data = JSON.parse(decodeURIComponent(m[1])); }
+    catch (_) { try { data = JSON.parse(atob(m[1])); } catch (_) {} }
+    if (data && Array.isArray(data.channels)) {
+      for (const channel of data.channels) {
+        if (channel && channel.id != null && channel.name != null) {
+          planets.push({
+            id: String(channel.id),
+            name: String(channel.name),
+            online: Number(channel.online || 0)
+          });
+        }
+      }
+    }
+  }
+  const seen = new Set();
+  return planets.filter(p => !seen.has(p.id) && seen.add(p.id));
+};
+
+window.renderPlanets = function(planets) {
+  planetList.innerHTML = '';
+  planetSection.style.display = 'block';
+  planetsData = planets;
+  if (!planets.length) {
+    planetList.innerHTML = '<div style="color:#999;text-align:center;padding:12px;font-size:11px;">No planets found</div>';
+    return;
+  }
+  for (const planet of planets) {
+    const row = document.createElement('div');
+    row.className = 'planet-row' + (planet.online ? ' online' : '');
+    const name = document.createElement('span');
+    name.className = 'planet-name';
+    name.textContent = planet.name;
+    name.title = planet.name;
+    if (planet.online) {
+      const dot = document.createElement('span');
+      dot.className = 'planet-online';
+      row.appendChild(dot);
+    }
+    row.appendChild(name);
+    planetList.appendChild(row);
+  }
+};
+
+/* ---------- WEBSOCKET ---------- */
+function createWebSocket() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return false;
+
+  const rc = getRC();
+  if (!rc) { updateStatus('❌ Please enter Recovery Code'); return false; }
+
+  const deviceType = getSelectedPlatformId();
+  updateStatus('🔌 Connecting to server...');
+
+  ws = new WebSocket('wss://cs.mobstudio.ru:6672');
+
+  ws.onopen = () => {
+    ws.send(`:en IDENT ${deviceType} -2 4030 1 2 :GALA\r\n`);
+    setButtonMode(true);
+    updateStatus('✅ Connected! Authenticating...');
+  };
+
+  ws.onmessage = (event) => {
+    const message = event.data;
+    const snippets = message.split(';').join(' ').split(' ');
+
+    if (snippets[0] === 'REGISTER' && snippets.length >= 4) {
+      id = snippets[1];
+      const password = snippets[2];
+      const usernameRaw = snippets[3];
+      finalusername = usernameRaw.split('\r\n')[0];
+      useridg = id; passwordg = password;
+      const tempHash = parseHaaapsi(haaapsi);
+      ws.send(`USER ${id} ${password} ${finalusername} ${tempHash}\r\n`);
+      updateStatus(`✅ Registered as ${finalusername}`);
+    }
+
+    if (snippets[0] === 'HAAAPSI') {
+      haaapsi = snippets[1];
+      const rc = getRC();
+      if (rc) { ws.send(`RECOVER ${rc}\r\n`); updateStatus('🔄 Recovery request sent'); }
+      else updateStatus('❌ Recovery Code is empty');
+    }
+
+    if (snippets[0] === '999') {
+      const phoneMessages = [
+        'PHONE 1080 2400 0 2 :Dalvik/2.1.0 (Linux; U; Android 12; DN2101 Build/SP1A.210812.016)',
+        'PHONE 1080 2340 0 2 :Dalvik/2.1.0 (Linux; U; Android 11; M2007J20CG Build/RKQ1.200710.003)',
+        'PHONE 1440 3200 0 2 :Dalvik/2.1.0 (Linux; U; Android 13; SM-G996B Build/TP1A.220624.014)',
+        'PHONE 1080 2412 0 2 :Dalvik/2.1.0 (Linux; U; Android 13; CPH2409 Build/TKQ1.230127.002)',
+        'PHONE 720 1600 0 2 :Dalvik/2.1.0 (Linux; U; Android 10; Redmi 9A Build/QP1A.190711.020)',
+        'PHONE 1080 2400 0 2 :Dalvik/2.1.0 (Linux; U; Android 12; SM-A525F Build/SP1A.210812.016)',
+        'PHONE 1440 3120 0 2 :Dalvik/2.1.0 (Linux; U; Android 9; LM-G820 Build/PKQ1.190522.001)',
+        'PHONE 1080 2460 0 2 :Dalvik/2.1.0 (Linux; U; Android 14; V2141 Build/UP1A.231005.007)',
+        'PHONE 1080 2340 0 2 :Dalvik/2.1.0 (Linux; U; Android 11; RMX3085 Build/RP1A.200720.011)',
+        'PHONE 1080 2408 0 2 :Dalvik/2.1.0 (Linux; U; Android 13; SM-M336B Build/TP1A.220624.014)'
+      ];
+      const randomPhone = phoneMessages[Math.floor(Math.random() * phoneMessages.length)];
+      ws.send('FWLISTVER 336\r\n');
+      ws.send('ADDONS 252213 2\r\n');
+      ws.send('MYADDONS 252213 2\r\n');
+      ws.send(randomPhone + '\r\n');
+      ws.send('JOIN\r\n');
+      updateStatus('📱 Handshake complete, joined game world.');
+      scheduleAutoPlanetLoad();
+    }
+
+    if (message.startsWith('PING')) ws.send('PONG\r\n');
+  };
+
+  ws.onerror = () => {
+    updateStatus('⚠️ WebSocket error occurred');
+    setButtonMode(false);
+    ws = null;
+  };
+
+  ws.onclose = () => {
+    updateStatus('🔌 Connection closed');
+    setButtonMode(false);
+    ws = null;
+    // Mentor mode keeps running only if WS still alive; stop it when WS closes
+    if (mentorActive) stopMentorMode('WS disconnected');
+  };
+
+  return true;
+}
+
+function toggleConnection() {
+  if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+    try { ws.send('QUIT :ds\r\n'); } catch (e) {}
+    try { ws.close(); } catch (e) {}
+    ws = null;
+    isConnected = false;
+    setButtonMode(false);
+    updateStatus('🔌 Disconnected');
+    if (mentorActive) stopMentorMode('Disconnected');
+    return;
+  }
+  if (ws) { try { ws.close(); } catch (e) {} ws = null; }
+  setButtonMode(false);
+  if (!getRC()) { updateStatus('❌ Please enter Recovery Code before connecting'); return; }
+  createWebSocket();
+}
+
+/* ================================================================
+   MENTOR MODE
+   ================================================================ */
+function getDelayForMsg(msgNum) {
+  const mode = document.querySelector(`.delay-mode[data-msg="${msgNum}"]`).value;
+  const min = parseFloat(document.querySelector(`.delay-min[data-msg="${msgNum}"]`).value) || 0;
+  const max = parseFloat(document.querySelector(`.delay-max[data-msg="${msgNum}"]`).value) || 0;
+  const lo = Math.min(min, max), hi = Math.max(min, max);
+  const rand = lo + Math.random() * (hi - lo);
+  return Math.round(rand * (mode === 'min' ? 60000 : 1000));
+}
+
+function formatCountdown(ms) {
+  if (ms < 0) ms = 0;
+  const s = Math.round(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+function sendMentorMessage(msgNum) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    stopMentorMode('WS not open');
+    return false;
+  }
+  try {
+    ws.send(MENTOR_MESSAGES[msgNum] + '\r\n');
+    incrementMsgCount();
+    mentorSendCount++;
+    console.log(`[Mentor] Sent msg ${msgNum}`);
+    return true;
+  } catch (e) {
+    console.warn('[Mentor] send failed', e);
+    return false;
+  }
+}
+
+function scheduleNextMentorMsg() {
+  // phase 0 => msg1, phase 1 => msg2, then loop back
+  const currentMsg = mentorPhase === 0 ? 1 : 2;
+  const delay = getDelayForMsg(currentMsg);
+  const nextTime = Date.now() + delay;
+
+  mentorNext.textContent = `Next: Message ${currentMsg} in ${formatCountdown(delay)}`;
+
+  // live countdown
+  if (mentorTimeout) clearTimeout(mentorTimeout);
+  const tick = setInterval(() => {
+    if (!mentorActive) { clearInterval(tick); return; }
+    const remaining = nextTime - Date.now();
+    if (remaining <= 0) {
+      clearInterval(tick);
+    } else {
+      mentorNext.textContent = `Next: Message ${currentMsg} in ${formatCountdown(remaining)}`;
+    }
+  }, 500);
+
+  mentorTimeout = setTimeout(() => {
+    clearInterval(tick);
+    if (!mentorActive) return;
+    const ok = sendMentorMessage(currentMsg);
+    if (!ok) return;
+    // After sending msg 1, wait 5s then send msg 2; after msg 2, wait 5s then loop back
+    setTimeout(() => {
+      if (!mentorActive) return;
+      const otherMsg = currentMsg === 1 ? 2 : 1;
+      sendMentorMessage(otherMsg);
+      mentorPhase = currentMsg === 1 ? 1 : 0;
+      // schedule the next cycle
+      scheduleNextMentorMsg();
+    }, 5000);
+  }, delay);
+}
+
+function startMentorMode() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    updateStatus('❌ Connect to server first before starting Mentor Mode');
+    return;
+  }
+  mentorActive = true;
+  mentorPhase = 0;
+  mentorStartedAt = Date.now();
+  mentorSendCount = 0;
+  mentorToggleBtn.textContent = '⏹️ STOP MENTOR MODE';
+  mentorToggleBtn.classList.add('active');
+  mentorSection.style.display = 'block';
+  updateStatus('🎓 Mentor Mode started');
+
+  // send first message immediately
+  if (sendMentorMessage(1)) {
+    setTimeout(() => {
+      if (!mentorActive) return;
+      sendMentorMessage(2);
+      scheduleNextMentorMsg();
+    }, 5000);
+  }
+
+  // update timer every second
+  const timerTick = setInterval(() => {
+    if (!mentorActive) { clearInterval(timerTick); mentorTimer.textContent = 'inactive'; return; }
+    const elapsed = Date.now() - mentorStartedAt;
+    mentorTimer.textContent = `active ${formatDuration(elapsed)} · ${mentorSendCount} sent`;
+  }, 1000);
+}
+
+function stopMentorMode(reason) {
+  mentorActive = false;
+  if (mentorTimeout) { clearTimeout(mentorTimeout); mentorTimeout = null; }
+  mentorToggleBtn.textContent = '🎓 MENTOR MODE';
+  mentorToggleBtn.classList.remove('active');
+  mentorNext.textContent = reason ? `Stopped: ${reason}` : 'Stopped';
+  mentorTimer.textContent = 'inactive';
+  updateStatus('🎓 Mentor Mode stopped');
+}
+
+function toggleMentorMode() {
+  if (mentorActive) stopMentorMode('User stopped');
+  else startMentorMode();
+}
+
+/* ---------- INIT ---------- */
+connectBtn.addEventListener('click', toggleConnection);
+mentorToggleBtn.addEventListener('click', toggleMentorMode);
+
+rcInput.addEventListener('input', e => {
+  if (e.target.value.length > 10) e.target.value = e.target.value.slice(0, 10);
+  saveRC(e.target.value.trim());
+});
+
+setButtonMode(false);
+
+/* Load persisted state */
+loadSavedRC();
+updateSessionDisplay();
+
+// Persist session every 5s
+saveInterval = setInterval(() => {
+  updateSessionDisplay();
+  persistSession();
+}, 5000);
+
+// On tab close / reload, flush session
+window.addEventListener('beforeunload', () => {
+  persistSession();
+  updateSessionDisplay();
+});
+
+// Also update on visibility change
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    sessionStart = Date.now();
+    updateSessionDisplay();
+  } else {
+    persistSession();
+  }
+});
+</script>
+</body>
+</html>
